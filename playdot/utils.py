@@ -14,14 +14,16 @@ def count_cardinal(
     x, y = point
     x_offset, y_offset = DIRECTIONS[direction]
     width = len(board)
-    inbound =  lambda p: width > p > -1
-    on_player = True
+
+    def inbound(p):
+        return width > p > -1
+
     while True:
         x = x + x_offset
         y = y + y_offset
         if not inbound(x) or not inbound(y):
             break
-        if board[y][x] != player:
+        if not board.is_piece(x, y, player):
             break
         count += 1
         if count >= WIN_COUNT:
@@ -32,7 +34,7 @@ def count_cardinal(
 def get_line_count_fn(directions):
     def fn(board, point, player):
         x, y = point
-        if board[y][x] != player:
+        if not board.is_piece(x, y, player):
             return 0
         count = 1 + sum(
             count_cardinal(board, point, d, player) for d in directions
@@ -49,7 +51,7 @@ count_bdiag = get_line_count_fn(("NW", "SE"))
 
 def check_if_in_win(board, point):
     x, y = point
-    piece = board[y][x]
+    piece = board.get_piece(x, y)
     if piece == EMPTY_DOT:
         return False
     if any(map(
