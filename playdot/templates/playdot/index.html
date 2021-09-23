@@ -1,0 +1,15 @@
+<!-- playdot/templates/playdot/index.html -->
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>PlayDot Games</title>
+</head>
+<body>
+    Enter the game uuid<br>
+    <input id="game-id-input" type="text" size="100"><br>
+    <input id="game-id-submit" type="button" value="Enter">
+    <script src="{% static 'playdot/js/index.js' %}"></script>
+</body>
+</html>

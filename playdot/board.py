@@ -7,6 +7,7 @@ from uuid import uuid4
 from .constants import (
     EMPTY_DOT,
 )
+from . import models
 
 
 class RowFull(Exception):
@@ -15,6 +16,8 @@ class RowFull(Exception):
 
 class EmptyRow(Exception):
     pass
+
+
 
 
 class BaseBoardBackend(ABC):
@@ -26,11 +29,11 @@ class BaseBoardBackend(ABC):
         pass
 
     @abstractmethod
-    def get_metadata(self, bid, y, key):
+    def get_metadata(self, bid, **kwargs):
         pass
 
     @abstractmethod
-    def set_metadata(self, bid, y, key, value):
+    def set_metadata(self, bid, **kwargs):
         pass
 
     @abstractmethod
@@ -50,26 +53,122 @@ class BaseBoardBackend(ABC):
         pass
 
 
-class MemoryBackend(BaseBoardBackend):
+class DjangoModelBackend(BaseBoardBackend):
+    def new_board(self, width):
+        bid = self.generate_id()
+        b = models.Board(bid=bid, width=width)
+        b.save()
+        return bid
+
+    def get_metadata(self, bid, **kwargs):
+        board = models.Board.objects.get(bid=bid)
+        if not 'y' in kwargs:
+            return getattr(board, kwargs['key'])
+        try:
+            row = models.Row.objects.get(board=board, y=kwargs["y"])
+        except models.Row.DoesNotExist:
+            raise EmptyRow()
+        return getattr(row, kwargs["key"])
+
+    def set_metadata(self, bid, **kwargs):
+        board = models.Board.objects.get(bid=bid)
+        if not 'y' in kwargs:
+            setattr(board, kwargs['key'], kwargs['value'])
+            board.save()
+            return
+        try:
+            row = models.Row.objects.get(board=board, y=kwargs["y"])
+        except models.Row.DoesNotExist:
+            row = models.Row(board=board, y=kwargs["y"])
+        setattr(row, kwargs["key"], kwargs["value"])
+        row.save()
+
+    def set_piece(self, bid, x, y, piece):
+        print(f"!!!!piece value is: {piece}")
+        board = models.Board.objects.get(bid=bid)
+        try:
+            row = models.Row.objects.get(board=board, y=y)
+        except models.Row.DoesNotExist:
+            row = models.Row(bid=bid, y=y)
+            row.save()
+        try:
+            space = models.Space.objects.get(board=board, row=row, x=x)
+            space.value = piece
+        except models.Space.DoesNotExist:
+            space = models.Space(board=board, row=row, value=piece, x=x)
+        space.save()
+
+    def get_piece(self, bid, x, y):
+        try:
+            board = models.Board.objects.get(bid=bid)
+            row = models.Row.objects.get(board=board, y=y)
+            space = models.Space.objects.get(board=board, row=row, x=x)
+        except models.Space.DoesNotExist:
+            return EMPTY_DOT
+        return space.value
+
+    def is_piece(self, bid, x, y, piece):
+        board = models.Board.objects.get(bid=bid)
+        try:
+            row = models.Row.objects.get(board=board, y=y)
+        except models.Row.DoesNotExist:
+            if piece == EMPTY_DOT:
+                return True
+            return False
+        exists = models.Space.objects.filter(board=board, row=row, x=x, value=piece).exists()
+        if not exists and piece == EMPTY_DOT:
+            return True
+        return exists
+
+    def to_string(self, bid):
+        board = models.Board.objects.get(bid=bid)
+        rows = models.Row.objects.filter(board=board).order_by('-y')
+        as_string = ""
+        for y in range(board.width):
+            try:
+                row = rows.get(y=y)
+                spaces = models.Space.objects.filter(board=board, row=row).order_by('-x')
+                for x in range(board.width):
+                    try:
+                        space = spaces.get(x=x)
+                        as_string = as_string + str(space.value)
+                    except models.Space.DoesNotExist:
+                        as_string = as_string + "_"
+            except models.Row.DoesNotExist:
+                as_string = as_string + "_" * board.width
+            as_string = as_string + ("\n")
+        return as_string
+
+
+BOARD_DATA = {"boards": {}}
+
+class GlobalVarBackend(BaseBoardBackend):
     def __init__(self):
-        self.data = {"boards": {}}
+        self.data = BOARD_DATA
 
     def new_board(self, width):
         bid = self.generate_id()
         row = [EMPTY_DOT]*width
         self.data['boards'][bid] = {'board': [], 'metadata': {}}
         self.data['boards'][bid]['board'] = [copy(row) for _ in range(width)]
+        self.data['boards'][bid]['width'] = width
         return bid
 
-    def get_metadata(self, bid, y, key):
-        if y not in self.data['boards'][bid]["metadata"]:
-            raise EmptyRow()
-        return self.data['boards'][bid]["metadata"][y][key]
+    def get_metadata(self, bid, **kwargs):
+        if 'y' in kwargs:
+            if kwargs["y"] not in self.data['boards'][bid]["metadata"]:
+                raise EmptyRow()
+            return self.data['boards'][bid]["metadata"][kwargs["y"]][kwargs["key"]]
+        return self.data['boards'][bid][kwargs["key"]]
 
-    def set_metadata(self, bid, y, key, value):
-        if y not in self.data['boards'][bid]['metadata']:
-            self.data['boards'][bid]['metadata'][y] = {}
-        self.data['boards'][bid]['metadata'][y][key] = value
+
+    def set_metadata(self, bid, **kwargs):
+        if 'y' in kwargs:
+            if kwargs['y'] not in self.data['boards'][bid]['metadata']:
+                self.data['boards'][bid]['metadata'][kwargs['y']] = {}
+            self.data['boards'][bid]['metadata'][kwargs['y']][kwargs['key']] = kwargs['value']
+        else:
+            self.data['boards'][bid][kwargs["key"]] = kwargs["value"]
 
     def get_piece(self, bid, x, y):
         return self.data['boards'][bid]['board'][y][x]
@@ -88,11 +187,15 @@ class MemoryBackend(BaseBoardBackend):
 
 
 class Board:
-    def __init__(self, width=7, bid=None, backend=MemoryBackend):
+    def __init__(self, width=None, bid=None, backend=GlobalVarBackend):
         self.backend = backend()
+        if bid is None and width is None:
+            raise TypeError("Can't create a new board without a width")
         if bid is None:
             self.bid = self.backend.new_board(width)
-        self.width = width
+        else:
+            self.bid = bid
+            self.width = self.backend.get_metadata(self.bid, key='width')
         self.last_altered = None
         self.default_row_metadata = (
             ("is_full", False),
@@ -110,20 +213,20 @@ class Board:
         if side not in ("L", "R"):
             raise ValueError()
         key = "right_peak" if side == "R" else "left_peak"
-        return self.backend.get_metadata(self.bid, y, key)
+        return self.backend.get_metadata(self.bid, y=y, key=key)
 
     def set_peak(self, y, side, value):
         if side not in ("L", "R"):
             raise ValueError()
         key = "right_peak" if side == "R" else "left_peak"
-        self.backend.set_metadata(self.bid, y, key, value)
+        self.backend.set_metadata(self.bid, y=y, key=key, value=value)
 
     def move_peak(self, y, side, value):
         if side not in ("L", "R"):
             raise ValueError()
         key = "right_peak" if side == "R" else "left_peak"
-        peak = self.backend.get_metadata(self.bid, y, key)
-        self.backend.set_metadata(self.bid, y, key, peak + value)
+        peak = self.backend.get_metadata(self.bid, y=y, key=key)
+        self.backend.set_metadata(self.bid, y=y, key=key, value=peak + value)
 
     def set_piece(self, x, y, piece):
         return self.backend.set_piece(self.bid, x, y, piece)
@@ -164,7 +267,7 @@ class Board:
         print(f"peak moved to {self.get_peak(y, side)}")
         above_peak_index = self.get_peak(y, side) + stack_inc
         if not self.is_piece(above_peak_index, y, EMPTY_DOT):
-            self.backend.set_metadata(self.bid, y, "is_full", True)
+            self.backend.set_metadata(self.bid, y=y, key="is_full", value=True)
         self.last_altered = [
             (x, y) for x in [self.get_peak(y, side)] + list(stack)
         ]
@@ -172,10 +275,10 @@ class Board:
 
     def do_move(self, player, side, y):
         try:
-            if self.backend.get_metadata(self.bid, y, "is_full"):
+            if self.backend.get_metadata(self.bid, y=y, key="is_full"):
                 raise RowFull("Can't place piece, row full")
         except EmptyRow:
             for key, value in self.default_row_metadata:
-                self.backend.set_metadata(self.bid, y, key, value)
+                self.backend.set_metadata(self.bid, y=y, key=key, value=value)
 
         return self._do_move(player, side, y)

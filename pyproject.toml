@@ -6,10 +6,14 @@ authors = ["Dylan Wilson <dylanjw@protonmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+Django = "^3.2.7"
+channels = "^3.0.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 invoke = "^1.6.0"
+pylint = "^2.11.1"
+flake8 = "^3.9.2"
 
 [build-system]
 requires = ["poetry>=0.12"]
