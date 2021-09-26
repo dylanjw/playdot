@@ -1,43 +1,42 @@
+from functools import wraps
 from .constants import (
-    WIN_COUNT,
+    WINNING_ROW_LEN,
     DIRECTIONS,
-    EMPTY_DOT,
 )
 
 
 def count_cardinal(
         board,
-        point: tuple,
+        x,
+        y,
         direction,
         player):
     count = 0
-    x, y = point
     x_offset, y_offset = DIRECTIONS[direction]
-    width = len(board)
 
     def inbound(p):
-        return width > p > -1
+        return board.width > p > -1
 
     while True:
         x = x + x_offset
         y = y + y_offset
         if not inbound(x) or not inbound(y):
             break
-        if not board.is_piece(x, y, player):
+        if not board.get_piece(x, y) == player:
             break
         count += 1
-        if count >= WIN_COUNT:
+        if count >= WINNING_ROW_LEN:
             break
     return count
 
 
 def get_line_count_fn(directions):
-    def fn(board, point, player):
-        x, y = point
-        if not board.is_piece(x, y, player):
+    def fn(board, x, y, player):
+        piece = board.get_piece(x, y)
+        if not piece == player:
             return 0
         count = 1 + sum(
-            count_cardinal(board, point, d, player) for d in directions
+            count_cardinal(board, x, y, d, player) for d in directions
         )
         return count
     return fn
@@ -49,17 +48,43 @@ count_fdiag = get_line_count_fn(("NE", "SW"))
 count_bdiag = get_line_count_fn(("NW", "SE"))
 
 
-def check_if_in_win(board, point):
-    x, y = point
-    piece = board.get_piece(x, y)
-    if piece == EMPTY_DOT:
-        return False
-    if any(map(
-            lambda c: c >= WIN_COUNT,
-            (
-                count_row(board, point, piece),
-                count_col(board, point, piece),
-                count_bdiag(board, point, piece),
-                count_fdiag(board, point, piece)))):
-        return True
-    return False
+class MetaAccessor:
+    """For use with row meta data
+    
+    When a row has no meta data associated with it, it is
+    initialized.
+    """
+    def __get__(self, obj, objtype=None):
+        self.obj = obj
+        return self
+
+    def __getitem__(self, key):
+        if self.obj.data.meta is None:
+            self.obj.data.meta = {}
+        if key not in self.obj.data.meta:  # TODO: limit key creation
+            self.obj.data.meta[key] = self._init_row_metadata()
+            self.obj.data.save()
+        return self.obj.data.meta[key]
+    
+    def __setitem__(self, key, value):
+        if key not in self.obj.data.meta:
+            self.obj.data.meta[key] = self._init_row_metadata()
+        self.obj.data.meta[key] = value
+        self.obj.data.save()
+
+    def _init_row_metadata(self):
+        return {
+            'peaks': {
+                side: conf.bottom for side, conf
+                in self.obj.stack_conf.items()
+            },
+            "is_full": False,
+        }
+
+
+def refresh_data(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        args[0].data.refresh_from_db()
+        return fn(*args, **kwargs)
+    return wrapper

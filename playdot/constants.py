@@ -1,5 +1,3 @@
-EMPTY_DOT = "_"
-
 DIRECTIONS = {
     "W": (-1,0),
     "E": (1,0),
@@ -11,4 +9,4 @@ DIRECTIONS = {
     "NE": (1,-1),
 }
 
-WIN_COUNT = 4
+WINNING_ROW_LEN = 4
