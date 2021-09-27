@@ -41,3 +41,8 @@ def move(request, gid):
     move_data = json.loads(request.body)
     game.do_move(move_data["side"], move_data["y"], move_data["player"])
     return HttpResponse("success")
+
+
+@require_GET
+def room(request, gid):
+    return render(request, "playdot/room.html", {"room_data": {"gid": gid}})

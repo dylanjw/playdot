@@ -7,10 +7,11 @@
     <title>PlayDot Games</title>
 </head>
 <body>
-    Enter the game uuid<br>
-    <input id="game-id-input" type="text" size="100"><br>
-    <input id="game-id-submit" type="button" value="Enter">
-    <input id="game-id-create-new-game" type="button" value="Enter">
+    <input id="create-new-game" type="button" value="New Game">
     <script src="{% static 'playdot/js/index.js' %}"></script>
+    {% csrf_token %}
+    <script>
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    </script>
 </body>
 </html>

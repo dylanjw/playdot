@@ -1,11 +1,16 @@
-document.querySelector('#game-id-input').focus();
-document.querySelector('#game-id-input').onkeyup = function(e) {
-    if (e.keyCode === 13) {  // enter, return
-        document.querySelector('#game-id-submit').click();
-    }
-};
-
-document.querySelector('#game-id-submit').onclick = function(e) {
-    var gameID = document.querySelector('#game-id-input').value;
-    window.location.pathname = '/playdot/' + gameID + '/';
+document.querySelector('#create-new-game').onclick = function (e) {
+    fetch(
+        'board/create/7',
+        {
+            method: "POST",
+            mode: 'same-origin',
+            headers: {
+                'X-CSRFToken': csrftoken
+            }
+        }
+    ).then(res => res.json())
+        .then(data => {
+            console.log(data)
+            window.location.pathname = "playdot/room/" + data["gid"]
+        })
 };
