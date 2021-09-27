@@ -9,35 +9,35 @@ from .game import Game
 
 @require_GET
 def index(request):
-    return render(request, 'playdot/index.html')
+    return render(request, "playdot/index.html")
+
 
 @require_POST
 def create(request, width=7):
     game = Game(board_width=7)
     return JsonResponse(game.data.get_room_info())
 
+
 @require_GET
 def list_rooms(request):
-    return JsonResponse({
-        "games": [
-            game.get_room_info() for game in models.GameData.objects.all()
-        ]
-    })
+    return JsonResponse(
+        {
+            "games": [
+                game.get_room_info() for game in models.GameData.objects.all()
+            ]
+        }
+    )
 
 
 @require_GET
 def game_state(request, gid):
     game = Game(gid=gid)
-    return JsonResponse(game.as_dict())      
+    return JsonResponse(game.as_dict())
 
 
 @require_POST
 def move(request, gid):
     game = Game(gid=gid)
     move_data = json.loads(request.body)
-    game.do_move(
-        move_data['side'], 
-        move_data['y'], 
-        move_data['player']
-    )
+    game.do_move(move_data["side"], move_data["y"], move_data["player"])
     return HttpResponse("success")

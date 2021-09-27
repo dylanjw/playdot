@@ -30,22 +30,20 @@ class StackConf:
 
 def get_stack_conf(board_width):
     return {
-        'R': StackConf(inc=-1, bottom=board_width - 1),
-        'L': StackConf(inc=1, bottom=0)
+        "R": StackConf(inc=-1, bottom=board_width - 1),
+        "L": StackConf(inc=1, bottom=0),
     }
 
 
 class Game:
     meta = utils.MetaAccessor()
 
-    def __init__(
-            self, 
-            gid=None, 
-            board_width=None):
+    def __init__(self, gid=None, board_width=None):
         self.init_game_data = PlaydotGameData.new
         if board_width is None and gid is None:
             raise TypeError(
-                "Must supply a value for board_width when initializing a new game"
+                "Must supply a value for board_width"
+                "when initializing a new game"
             )
 
         if gid is None:
@@ -69,12 +67,12 @@ class Game:
 
     @utils.refresh_data
     def _get_peak(self, y, side):
-        return self.meta[y]['peaks'][side]
+        return self.meta[y]["peaks"][side]
 
     @utils.refresh_data
     def _bump_peak(self, y, side):
         inc = self.stack_conf[side].inc
-        self.meta[y]['peaks'][side] += inc
+        self.meta[y]["peaks"][side] += inc
 
     def _check_if_row_full(self, y, side):
         x_above_peak = self._get_peak(y, side) + self.stack_conf[side].inc
@@ -86,13 +84,17 @@ class Game:
         piece = self.data.board.get_piece(x, y)
         if piece == PlaydotPiece.BLANK:
             return False
-        if any(map(
+        if any(
+            map(
                 lambda c: c >= constants.WINNING_ROW_LEN,
                 (
                     utils.count_row(self.data.board, x, y, piece),
                     utils.count_col(self.data.board, x, y, piece),
                     utils.count_bdiag(self.data.board, x, y, piece),
-                    utils.count_fdiag(self.data.board, x, y, piece)))):
+                    utils.count_fdiag(self.data.board, x, y, piece),
+                ),
+            )
+        ):
             return True
         return False
 
@@ -120,12 +122,12 @@ class Game:
         return {
             "gid": self.gid,
             "board_width": self.board_width,
-            "board": self.board_as_dict()
+            "board": self.board_as_dict(),
         }
 
     def board_as_dict(self):
         filled_spaces = Space.objects.filter(board=self.data.board)
         return [
-            {'x': space.x, 'y': space.row.y, 'value': space.value} 
+            {"x": space.x, "y": space.row.y, "value": space.value}
             for space in filled_spaces
         ]

@@ -7,7 +7,6 @@ from playdot.utils import (
     count_bdiag,
     count_fdiag,
 )
-from playdot.game import Game
 from playdot.models import GameData, GridBoard
 
 
@@ -37,6 +36,7 @@ def board(db):
             game_board.set_piece(x, y, piece)
     return game_board
 
+
 @pytest.mark.parametrize(
     "x,y,direction,player,expected_count",
     (
@@ -45,27 +45,27 @@ def board(db):
         (0, 6, "NE", "X", 3),
         (1, 1, "E", "X", 0),
         (1, 1, "W", "X", 1),
-    )
+    ),
 )
 @pytest.mark.django_db()
-def test_count_cardinal_from_edge(board, x, y, direction, player, expected_count):
-    count = count_cardinal(
-        board,
-        x, y,
-        direction,
-        player)
+def test_count_cardinal_from_edge(
+    board, x, y, direction, player, expected_count
+):
+    count = count_cardinal(board, x, y, direction, player)
     assert count == expected_count
-
 
 
 def test_count_row(board):
     assert count_row(board, 0, 1, "X") == 2
 
+
 def test_count_col(board):
     assert count_col(board, 6, 3, "X") == 3
 
+
 def test_count_fdiag(board):
     assert count_fdiag(board, 1, 4, "X") == 3
+
 
 def test_count_bdiag(board):
     assert count_bdiag(board, 1, 4, "X") == 2

@@ -23,16 +23,16 @@ def test_list_rooms_two(client, db, create_games):
 
 
 def test_create(client, db):
-    response = client.post(reverse(create, kwargs={'width': 7}))
+    response = client.post(reverse(create, kwargs={"width": 7}))
     room_info = json.loads(response.content)
     assert room_info["board_width"] == 7
 
 
 def test_get_board_state(client, db, create_games):
     gid, _ = create_games
-    response = client.get(reverse(game_state, kwargs={'gid': gid}))
+    response = client.get(reverse(game_state, kwargs={"gid": gid}))
     board_state = json.loads(response.content)
-    assert len(board_state['board']) == 0
+    assert len(board_state["board"]) == 0
 
 
 def test_make_move(client, db, create_games):
@@ -41,20 +41,12 @@ def test_make_move(client, db, create_games):
     y = "0"
     gid, _ = create_games
     response = client.post(
-        reverse(
-            move, 
-            kwargs={'gid': gid}
-        ),
-        data={'y': y, 'side': side, 'player': player},
-        content_type="application/json"
+        reverse(move, kwargs={"gid": gid}),
+        data={"y": y, "side": side, "player": player},
+        content_type="application/json",
     )
     assert response.content.decode() == "success"
-    
-    response = client.get(
-        reverse(
-            game_state,
-            kwargs={"gid": gid}
-        )
-    )
+
+    response = client.get(reverse(game_state, kwargs={"gid": gid}))
     board_data = json.loads(response.content)
-    assert board_data['board'][0] == {'x': 6, 'y': 0, 'value': '1'}
+    assert board_data["board"][0] == {"x": 6, "y": 0, "value": "1"}

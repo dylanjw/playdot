@@ -5,12 +5,7 @@ from .constants import (
 )
 
 
-def count_cardinal(
-        board,
-        x,
-        y,
-        direction,
-        player):
+def count_cardinal(board, x, y, direction, player):
     count = 0
     x_offset, y_offset = DIRECTIONS[direction]
 
@@ -39,6 +34,7 @@ def get_line_count_fn(directions):
             count_cardinal(board, x, y, d, player) for d in directions
         )
         return count
+
     return fn
 
 
@@ -50,10 +46,11 @@ count_bdiag = get_line_count_fn(("NW", "SE"))
 
 class MetaAccessor:
     """For use with row meta data
-    
+
     When a row has no meta data associated with it, it is
     initialized.
     """
+
     def __get__(self, obj, objtype=None):
         self.obj = obj
         return self
@@ -65,7 +62,7 @@ class MetaAccessor:
             self.obj.data.meta[key] = self._init_row_metadata()
             self.obj.data.save()
         return self.obj.data.meta[key]
-    
+
     def __setitem__(self, key, value):
         if key not in self.obj.data.meta:
             self.obj.data.meta[key] = self._init_row_metadata()
@@ -74,9 +71,8 @@ class MetaAccessor:
 
     def _init_row_metadata(self):
         return {
-            'peaks': {
-                side: conf.bottom for side, conf
-                in self.obj.stack_conf.items()
+            "peaks": {
+                side: conf.bottom for side, conf in self.obj.stack_conf.items()
             },
             "is_full": False,
         }
@@ -87,4 +83,5 @@ def refresh_data(fn):
     def wrapper(*args, **kwargs):
         args[0].data.refresh_from_db()
         return fn(*args, **kwargs)
+
     return wrapper
