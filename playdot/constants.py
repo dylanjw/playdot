@@ -1,3 +1,12 @@
+from enum import Enum
+
+
+class PlaydotPiece(Enum):
+    ONE = 1
+    TWO = 2
+    BLANK = 0
+
+
 DIRECTIONS = {
     "W": (-1, 0),
     "E": (1, 0),

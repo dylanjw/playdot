@@ -1,4 +1,4 @@
-db.sqlite3
+db.sqlite3*
 *.egg-info
 *.pyc
 .python-version

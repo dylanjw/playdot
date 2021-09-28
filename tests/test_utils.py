@@ -6,8 +6,10 @@ from playdot.utils import (
     count_col,
     count_bdiag,
     count_fdiag,
+    get_reverse_bottom,
 )
 from playdot.models import GameData, GridBoard
+from playdot.constants import PlaydotPiece
 
 
 TEST_BOARD_STR = """
@@ -19,6 +21,11 @@ XXXO__X
 XXO__XO
 XXO__XO
 """
+
+
+def test_get_reverse_bottom():
+    assert get_reverse_bottom(7, 1, -1) == 7
+    assert get_reverse_bottom(7, -1, 7) == -1
 
 
 @pytest.fixture()
@@ -33,6 +40,8 @@ def board(db):
     for y in range(width):
         for x in range(width):
             piece = test_board_rows[y][x]
+            convert = {"X": 1, "O": 2, "_": 0}
+            piece = convert[piece]
             game_board.set_piece(x, y, piece)
     return game_board
 
@@ -40,11 +49,11 @@ def board(db):
 @pytest.mark.parametrize(
     "x,y,direction,player,expected_count",
     (
-        (6, 0, "NE", "X", 0),
-        (6, 6, "NE", "0", 0),
-        (0, 6, "NE", "X", 3),
-        (1, 1, "E", "X", 0),
-        (1, 1, "W", "X", 1),
+        (6, 0, "NE", PlaydotPiece(1), 0),
+        (6, 6, "NE", PlaydotPiece(2), 0),
+        (0, 6, "NE", PlaydotPiece(1), 3),
+        (1, 1, "E", PlaydotPiece(1), 0),
+        (1, 1, "W", PlaydotPiece(1), 1),
     ),
 )
 @pytest.mark.django_db()
@@ -56,16 +65,16 @@ def test_count_cardinal_from_edge(
 
 
 def test_count_row(board):
-    assert count_row(board, 0, 1, "X") == 2
+    assert count_row(board, 0, 1, PlaydotPiece(1)) == 2
 
 
 def test_count_col(board):
-    assert count_col(board, 6, 3, "X") == 3
+    assert count_col(board, 6, 3, PlaydotPiece(1)) == 3
 
 
 def test_count_fdiag(board):
-    assert count_fdiag(board, 1, 4, "X") == 3
+    assert count_fdiag(board, 1, 4, PlaydotPiece(1)) == 3
 
 
 def test_count_bdiag(board):
-    assert count_bdiag(board, 1, 4, "X") == 2
+    assert count_bdiag(board, 1, 4, PlaydotPiece(1)) == 2

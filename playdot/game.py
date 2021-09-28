@@ -1,11 +1,12 @@
 import uuid
 from . import utils, constants
 from .models import (
+    PlaydotPiece,
     PlaydotGameData,
     Space,
+    Piece,
 )
 from dataclasses import dataclass
-from enum import Enum
 
 
 class RowFull(Exception):
@@ -16,10 +17,8 @@ class GameNotFound(Exception):
     pass
 
 
-class PlaydotPiece(Enum):
-    ONE = 1
-    TWO = 2
-    BLANK = 0
+class GameOver(Exception):
+    pass
 
 
 @dataclass
@@ -28,16 +27,21 @@ class StackConf:
     bottom: int = None
 
 
+def get_next_player(piece: PlaydotPiece):
+    if piece == PlaydotPiece.ONE:
+        return PlaydotPiece.TWO
+    else:
+        return PlaydotPiece.ONE
+
+
 def get_stack_conf(board_width):
     return {
-        "R": StackConf(inc=-1, bottom=board_width - 1),
-        "L": StackConf(inc=1, bottom=0),
+        "R": StackConf(inc=-1, bottom=board_width),
+        "L": StackConf(inc=1, bottom=-1),
     }
 
 
 class Game:
-    meta = utils.MetaAccessor()
-
     def __init__(self, gid=None, board_width=None):
         self.init_game_data = PlaydotGameData.new
         if board_width is None and gid is None:
@@ -47,23 +51,24 @@ class Game:
             )
 
         if gid is None:
-            self.new_game(board_width)
+            self.data = self.new_game(board_width)
         else:
-            self.load_game(gid)
+            self.data = self.load_game(gid)
 
         self.gid = self.data.gid
         self.board_width = self.data.board.width
         self.stack_conf = get_stack_conf(self.board_width)
+        self.meta = utils.MetaAccessor(self)
 
     def load_game(self, gid):
         if PlaydotGameData.objects.filter(gid=gid).exists():
-            self.data = PlaydotGameData.objects.get(gid=gid)
+            return PlaydotGameData.objects.get(gid=gid)
         else:
             raise GameNotFound()
 
     def new_game(self, board_width):
         gid = uuid.uuid4()
-        self.data = self.init_game_data(gid, board_width)
+        return self.init_game_data(gid, board_width)
 
     @utils.refresh_data
     def _get_peak(self, y, side):
@@ -73,15 +78,25 @@ class Game:
     def _bump_peak(self, y, side):
         inc = self.stack_conf[side].inc
         self.meta[y]["peaks"][side] += inc
+        self.data.save()
 
     def _check_if_row_full(self, y, side):
-        x_above_peak = self._get_peak(y, side) + self.stack_conf[side].inc
-        if self.data.board.get_piece(x_above_peak, y) != PlaydotPiece.BLANK:
+        print("checking if row is full")
+        s = self.stack_conf[side]
+        x_above_peak = self._get_peak(y, side) + s.inc
+        max_x = utils.get_reverse_bottom(self.board_width, s.inc, s.bottom)
+        print(f"x_above_peak: {x_above_peak}, max_x:{max_x}")
+        if x_above_peak == max_x:
+            return True
+        piece_value = self.data.board.get_piece(x_above_peak, y)
+        print(f"piece_value: {piece_value}")
+        if PlaydotPiece(piece_value) != PlaydotPiece.BLANK:
+            print("not blank")
             return True
         return False
 
     def _check_if_in_win(self, x, y):
-        piece = self.data.board.get_piece(x, y)
+        piece = PlaydotPiece(self.data.board.get_piece(x, y))
         if piece == PlaydotPiece.BLANK:
             return False
         if any(
@@ -95,39 +110,58 @@ class Game:
                 ),
             )
         ):
-            return True
-        return False
+            print(f"{piece} won the game")
+            self.data.winner = Piece.objects.get(value=piece.value)
+            self.data.save()
 
-    def do_move(self, side, y, piece):
+    @utils.refresh_data
+    def do_move(self, side, y, piece_value: int):
+        piece = PlaydotPiece(piece_value)
+        if Piece.objects.get(value=piece.value) != self.data.next_to_play:
+            print("blocking move")
+            return
         y = int(y)
         if self.meta[y]["is_full"]:
             raise RowFull()
+        if self.data.winner:
+            raise GameOver()
         s = self.stack_conf[side]
         peak = self._get_peak(y, side)
-        stack_x_coord = range(peak, s.bottom - s.inc, -(s.inc))
+        stack_x_coord = range(peak + s.inc, s.bottom, -(s.inc))
         for x in stack_x_coord:
-            shifting_piece = self.data.board.get_piece(y, x)
-            if shifting_piece == 0:
+            shifting_piece = PlaydotPiece(self.data.board.get_piece(x, y))
+            if shifting_piece == PlaydotPiece.BLANK:
                 continue
-            self.data.board.set_piece(x + s.inc, y, shifting_piece)
+            print("Shifting!")
+            self.data.board.set_piece(x + s.inc, y, shifting_piece.value)
             self._check_if_in_win(x + s.inc, y)
-        self.data.board.set_piece(s.bottom, y, piece)
-        self._check_if_in_win(s.bottom, y)
+        self.data.board.set_piece(s.bottom + s.inc, y, piece.value)
+        self._check_if_in_win(s.bottom + s.inc, y)
         self._bump_peak(y, side)
         if self._check_if_row_full(y, side):
+            print("Row is full!")
             self.meta[y]["is_full"] = True
+        self.data.next_to_play = Piece.objects.get(
+            value=get_next_player(PlaydotPiece(piece)).value
+        )
+        self.data.board.save()
         self.data.save()
 
     def as_dict(self):
+        winner = None
+        if self.data.winner:
+            winner = self.data.winner.value
         return {
             "gid": self.gid,
             "board_width": self.board_width,
             "board": self.board_as_dict(),
+            "next_player": self.data.next_to_play.value,
+            "winner": winner,
         }
 
     def board_as_dict(self):
         filled_spaces = Space.objects.filter(board=self.data.board)
         return [
-            {"x": space.x, "y": space.row.y, "value": space.value}
+            {"x": space.x, "y": space.row.y, "value": space.value.value}
             for space in filled_spaces
         ]

@@ -6,14 +6,7 @@
     <title>PlayDot</title>
 </head>
 <body>
-    <textarea id="txt-board" cols="100" rows="20"></textarea><br>
-    <label for="select_player">Select Player:</label>
-    <select id="select_player">
-        <option value="X">X</value>
-        <option value="O">O</value>
-    </select><br>
-    <input id="player-input" type="text" size="100"><br>
-    <input id="player-input-submit" type="button" value="Send">
+    <div id="app"/>
     {{ room_data|json_script:"room-data" }}
     {% csrf_token %}
     <script>

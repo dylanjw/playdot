@@ -36,7 +36,7 @@ def test_get_board_state(client, db, create_games):
 
 
 def test_make_move(client, db, create_games):
-    player = "1"
+    player = 1
     side = "R"
     y = "0"
     gid, _ = create_games
@@ -49,4 +49,4 @@ def test_make_move(client, db, create_games):
 
     response = client.get(reverse(game_state, kwargs={"gid": gid}))
     board_data = json.loads(response.content)
-    assert board_data["board"][0] == {"x": 6, "y": 0, "value": "1"}
+    assert board_data["board"][0] == {"x": 6, "y": 0, "value": 1}

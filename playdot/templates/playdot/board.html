@@ -6,14 +6,7 @@
     <title>PlayDot</title>
 </head>
 <body>
-    <textarea id="txt-board" cols="100" rows="20"></textarea><br>
-    <label for="select_player">Select Player:</label>
-    <select id="select_player">
-        <option value="X">X</value>
-        <option value="O">O</value>
-    </select><br>
-    <input id="player-input" type="text" size="100"><br>
-    <input id="player-input-submit" type="button" value="Send">
+    <app></app>
     {{ board_data|json_script:"board-data" }}
     <script src="{% static 'playdot/js/board.js' %}"></script>
 </body>

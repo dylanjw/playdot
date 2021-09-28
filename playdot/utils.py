@@ -2,6 +2,7 @@ from functools import wraps
 from .constants import (
     WINNING_ROW_LEN,
     DIRECTIONS,
+    PlaydotPiece,
 )
 
 
@@ -17,7 +18,7 @@ def count_cardinal(board, x, y, direction, player):
         y = y + y_offset
         if not inbound(x) or not inbound(y):
             break
-        if not board.get_piece(x, y) == player:
+        if not PlaydotPiece(board.get_piece(x, y)) == player:
             break
         count += 1
         if count >= WINNING_ROW_LEN:
@@ -27,7 +28,7 @@ def count_cardinal(board, x, y, direction, player):
 
 def get_line_count_fn(directions):
     def fn(board, x, y, player):
-        piece = board.get_piece(x, y)
+        piece = PlaydotPiece(board.get_piece(x, y))
         if not piece == player:
             return 0
         count = 1 + sum(
@@ -51,28 +52,31 @@ class MetaAccessor:
     initialized.
     """
 
-    def __get__(self, obj, objtype=None):
-        self.obj = obj
-        return self
+    def __init__(self, game):
+        self.game = game
 
     def __getitem__(self, key):
-        if self.obj.data.meta is None:
-            self.obj.data.meta = {}
-        if key not in self.obj.data.meta:  # TODO: limit key creation
-            self.obj.data.meta[key] = self._init_row_metadata()
-            self.obj.data.save()
-        return self.obj.data.meta[key]
+        key = str(key)
+        if self.game.data.meta is None:
+            self.game.data.meta = {}
+        if key not in self.game.data.meta.keys():  # TODO: limit key creation
+            print("initializing row metadata")
+            print(f"{key} not in {self.game.data.meta.keys()}")
+            self.game.data.meta[key] = self._init_row_metadata()
+            self.game.data.save()
+        return self.game.data.meta[key]
 
     def __setitem__(self, key, value):
-        if key not in self.obj.data.meta:
-            self.obj.data.meta[key] = self._init_row_metadata()
-        self.obj.data.meta[key] = value
-        self.obj.data.save()
+        key = str(key)
+        if key not in self.game.data.meta:
+            self.game.data.meta[key] = self._init_row_metadata()
+        self.game.data.meta[key] = value
+        self.game.data.save()
 
     def _init_row_metadata(self):
         return {
             "peaks": {
-                side: conf.bottom for side, conf in self.obj.stack_conf.items()
+                side: conf.bottom for side, conf in self.game.stack_conf.items()
             },
             "is_full": False,
         }
@@ -85,3 +89,8 @@ def refresh_data(fn):
         return fn(*args, **kwargs)
 
     return wrapper
+
+
+def get_reverse_bottom(width, inc, bottom):
+    # get the converse of bottom for board
+    return (width - 1) - bottom

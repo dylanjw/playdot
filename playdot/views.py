@@ -29,7 +29,6 @@ def list_rooms(request):
     )
 
 
-@require_GET
 def game_state(request, gid):
     game = Game(gid=gid)
     return JsonResponse(game.as_dict())
@@ -39,6 +38,7 @@ def game_state(request, gid):
 def move(request, gid):
     game = Game(gid=gid)
     move_data = json.loads(request.body)
+    print(f"move_data:{move_data}")
     game.do_move(move_data["side"], move_data["y"], move_data["player"])
     return HttpResponse("success")
 

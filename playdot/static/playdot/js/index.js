@@ -11,6 +11,6 @@ document.querySelector('#create-new-game').onclick = function (e) {
     ).then(res => res.json())
         .then(data => {
             console.log(data)
-            window.location.pathname = "playdot/room/" + data["gid"]
+            window.location.pathname = "playdot/board/" + data["gid"]
         })
 };
