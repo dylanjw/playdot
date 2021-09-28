@@ -112,9 +112,6 @@ class Row(models.Model):
         on_delete=models.CASCADE,
         related_name="rows",
     )
-    right_peak = models.IntegerField(null=True)
-    left_peak = models.IntegerField(null=True)
-    is_full = models.BooleanField(default=False)
     y = models.IntegerField()
 
     def __getitem__(self, index):
