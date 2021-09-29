@@ -14,7 +14,7 @@ def index(request):
 
 @require_POST
 def create(request, width=7):
-    game = Game(board_width=7)
+    game = Game(board_width=width)
     return JsonResponse(game.data.get_room_info())
 
 
