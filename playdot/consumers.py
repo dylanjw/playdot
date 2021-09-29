@@ -2,8 +2,44 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from .game import Game, PlaydotPiece, RowFull, GameOver
-from .models import ChannelPlayer, Piece
+from .models import ChannelPlayer
 from django.db import IntegrityError
+
+
+def try_assign_player_to_channel(game_data, piece, channel_name) -> bool:
+    """Attempt to assign a player to a channel
+
+    Returns True when this piece is (or already is) assigned to channel.
+
+    """
+    try:
+        # We try to create a player assignment and see if it succeeds,
+        # avoiding a race condition between checking and assigning.
+        ChannelPlayer(
+            game=game_data, playing_as=piece.value, channel_name=channel_name
+        ).save()
+        return True
+    # Django throws an IntegrityError when a unique contraint is violated.
+    except IntegrityError:
+        if ChannelPlayer.objects.filter(
+            game=game_data, playing_as=piece.value, channel_name=channel_name
+        ).exists():
+            return True
+        return False
+
+
+async def get_player_assignment(game_data, channel_name):
+    for piece in (PlaydotPiece.ONE, PlaydotPiece.TWO):
+        created = await database_sync_to_async(try_assign_player_to_channel)(
+            game_data, piece, channel_name
+        )
+
+        if created:
+            player = piece.value
+            break
+    else:
+        player = "observer"
+    return player
 
 
 class GameConsumer(AsyncJsonWebsocketConsumer):
@@ -16,31 +52,12 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
         # Join room group
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
         await self.accept()
 
-        for piece in (PlaydotPiece.ONE, PlaydotPiece.TWO):
-            print(f"checking piece for assignment: {piece}")
-            p_instance, _ = await database_sync_to_async(
-                Piece.objects.get_or_create
-            )(value=piece.value)
-
-            player, created = await database_sync_to_async(
-                catch_integrity_error(ChannelPlayer.objects.get_or_create)
-            )(
-                game=self.game.data,
-                playing_as=p_instance,
-                channel_name=self.channel_name,
-            )
-            print(f"obj:{player}, create?:{created}")
-            # either found or added to db
-            if created or (player is not None and not created):
-                self.player = piece
-                break
-        else:
-            self.player = "observer"
-        print(f"sending player assignment: {piece.value}")
-        await self.send_json({"method": "assign_player", "data": piece.value})
+        # Player assignment
+        player = await get_player_assignment(self.game.data, self.channel_name)
+        await self.send_json({"method": "assign_player", "data": player})
+        self.player = player
 
     async def disconnect(self, close_code):
         # Leave room group
