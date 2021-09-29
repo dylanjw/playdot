@@ -4,7 +4,6 @@ from .models import (
     PlaydotPiece,
     PlaydotGameData,
     Space,
-    Piece,
 )
 from dataclasses import dataclass
 
@@ -111,13 +110,13 @@ class Game:
             )
         ):
             print(f"{piece} won the game")
-            self.data.winner = Piece.objects.get(value=piece.value)
+            self.data.winner = piece.value
             self.data.save()
 
     @utils.refresh_data
     def do_move(self, side, y, piece_value: int):
         piece = PlaydotPiece(piece_value)
-        if Piece.objects.get(value=piece.value) != self.data.next_to_play:
+        if piece.value != self.data.next_to_play:
             print("blocking move")
             return
         y = int(y)
@@ -141,27 +140,25 @@ class Game:
         if self._check_if_row_full(y, side):
             print("Row is full!")
             self.meta[y]["is_full"] = True
-        self.data.next_to_play = Piece.objects.get(
-            value=get_next_player(PlaydotPiece(piece)).value
-        )
+        self.data.next_to_play = get_next_player(piece).value
         self.data.board.save()
         self.data.save()
 
     def as_dict(self):
         winner = None
         if self.data.winner:
-            winner = self.data.winner.value
+            winner = self.data.winner
         return {
             "gid": self.gid,
             "board_width": self.board_width,
             "board": self.board_as_dict(),
-            "next_player": self.data.next_to_play.value,
+            "next_player": self.data.next_to_play,
             "winner": winner,
         }
 
     def board_as_dict(self):
         filled_spaces = Space.objects.filter(board=self.data.board)
         return [
-            {"x": space.x, "y": space.row.y, "value": space.value.value}
+            {"x": space.x, "y": space.row.y, "value": space.value}
             for space in filled_spaces
         ]

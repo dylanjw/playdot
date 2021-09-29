@@ -36,3 +36,13 @@ Copy the address into a separate browser tab.
 - [X] Have players assigned, after 2 aditional players are "observers"
 - [X] Make board less ugly
 - [X] Simplify board state, board logic and game logic
+
+
+
+Issues:
+
+- [ ] Player assignment is wrong. 
+As players join the game, the newest player gets assigned 
+instead of being made an observer
+
+- [ ] Mid-line is wrong.

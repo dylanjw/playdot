@@ -2,7 +2,7 @@
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from .game import Game, PlaydotPiece, RowFull, GameOver
-from .models import ChannelPlayer, Piece
+from .models import ChannelPlayer
 from django.db import IntegrityError
 
 
@@ -21,21 +21,30 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
 
         for piece in (PlaydotPiece.ONE, PlaydotPiece.TWO):
             print(f"checking piece for assignment: {piece}")
-            p_instance, _ = await database_sync_to_async(
-                Piece.objects.get_or_create
-            )(value=piece.value)
 
-            player, created = await database_sync_to_async(
+            channel_player, created = await database_sync_to_async(
                 catch_integrity_error(ChannelPlayer.objects.get_or_create)
             )(
                 game=self.game.data,
-                playing_as=p_instance,
+                playing_as=piece.value,
                 channel_name=self.channel_name,
             )
-            print(f"obj:{player}, create?:{created}")
+            # Three situations here
+            #
+            # 1. This channel is already assigned to this piece
+            #  values would be (player=ChannelPlayer(), created=False)
+            # 2. This piece not assigned, and then was assigned to this channel
+            #  values would be (player=player, True)
+            # 3. This piece already assigned to another channel
+            #  A IntegrityCheck gets thrown when a player attemtps to create
+            #  ChannelPlayer
+            #  but the unique on (piece, game) is violated.
+            #  values would be (player=None, False)
+
+            print(f"obj:{channel_player}, create?:{created}")
             # either found or added to db
-            if created or (player is not None and not created):
-                self.player = piece
+            if created or (channel_player is not None and not created):
+                self.player = piece.value
                 break
         else:
             self.player = "observer"
