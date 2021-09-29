@@ -41,7 +41,7 @@ Copy the address into a separate browser tab.
 
 Issues:
 
-- [ ] Player assignment is wrong. 
+- [X] Player assignment is wrong. 
 As players join the game, the newest player gets assigned 
 instead of being made an observer
 
