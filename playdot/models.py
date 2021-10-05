@@ -27,6 +27,7 @@ class GameData(models.Model):
     board = models.OneToOneField(
         "GridBoard", on_delete=models.CASCADE, related_name="game"
     )
+    is_single_player = models.BooleanField(default=False)
 
     meta = models.JSONField(null=True)
 
@@ -36,12 +37,15 @@ class GameData(models.Model):
 
 class PlaydotGameData(GameData):
     @classmethod
-    def new(cls, gid, board_width):
+    def new(cls, gid, board_width, is_single_player):
         if not cls.objects.filter(gid=gid).exists():
             grid_board = GridBoard(width=board_width)
             grid_board.save()
             game_data = cls(
-                gid=gid, board=grid_board, next_to_play=PlaydotPiece.ONE.value
+                gid=gid,
+                board=grid_board,
+                next_to_play=PlaydotPiece.ONE.value,
+                is_single_player=is_single_player,
             )
             game_data.save()
             return game_data

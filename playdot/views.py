@@ -18,6 +18,12 @@ def create(request, width=7):
     return JsonResponse(game.data.get_room_info())
 
 
+@require_POST
+def create_single_player(request, width=7):
+    game = Game(board_width=width, is_single_player=True)
+    return JsonResponse(game.data.get_room_info())
+
+
 @require_GET
 def list_rooms(request):
     return JsonResponse(

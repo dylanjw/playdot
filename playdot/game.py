@@ -6,6 +6,7 @@ from .models import (
     Space,
 )
 from dataclasses import dataclass
+import random
 
 
 class RowFull(Exception):
@@ -26,7 +27,7 @@ class StackConf:
     bottom: int = None
 
 
-def get_next_player(piece: PlaydotPiece):
+def get_other_player(piece: PlaydotPiece):
     if piece == PlaydotPiece.ONE:
         return PlaydotPiece.TWO
     else:
@@ -41,7 +42,7 @@ def get_stack_conf(board_width):
 
 
 class Game:
-    def __init__(self, gid=None, board_width=None):
+    def __init__(self, gid=None, board_width=None, is_single_player=False):
         self.init_game_data = PlaydotGameData.new
         if board_width is None and gid is None:
             raise TypeError(
@@ -50,7 +51,7 @@ class Game:
             )
 
         if gid is None:
-            self.data = self.new_game(board_width)
+            self.data = self.new_game(board_width, is_single_player)
         else:
             self.data = self.load_game(gid)
 
@@ -59,15 +60,20 @@ class Game:
         self.stack_conf = get_stack_conf(self.board_width)
         self.meta = utils.MetaAccessor(self)
 
+        if self.data.is_single_player:
+            self.do_move = self._do_single_player_move
+        else:
+            self.do_move = self._do_regular_move
+
     def load_game(self, gid):
         if PlaydotGameData.objects.filter(gid=gid).exists():
             return PlaydotGameData.objects.get(gid=gid)
         else:
             raise GameNotFound()
 
-    def new_game(self, board_width):
+    def new_game(self, board_width, is_single_player):
         gid = uuid.uuid4()
-        return self.init_game_data(gid, board_width)
+        return self.init_game_data(gid, board_width, is_single_player)
 
     @utils.refresh_data
     def _get_peak(self, y, side):
@@ -114,7 +120,7 @@ class Game:
             self.data.save()
 
     @utils.refresh_data
-    def do_move(self, side, y, piece_value: int):
+    def _do_regular_move(self, side, y, piece_value: int):
         piece = PlaydotPiece(piece_value)
         if piece.value != self.data.next_to_play:
             print("blocking move")
@@ -140,7 +146,7 @@ class Game:
         if self._check_if_row_full(y, side):
             print("Row is full!")
             self.meta[y]["is_full"] = True
-        self.data.next_to_play = get_next_player(piece).value
+        self.data.next_to_play = get_other_player(piece).value
         self.data.board.save()
         self.data.save()
 
@@ -162,3 +168,21 @@ class Game:
             {"x": space.x, "y": space.row.y, "value": space.value}
             for space in filled_spaces
         ]
+
+    def _do_single_player_move(self, side, y, piece_value):
+        self._do_regular_move(side, y, piece_value)
+        bot_piece = get_other_player(PlaydotPiece(piece_value))
+        while True:
+            side, y = generate_random_move(self.board_width)
+            if self.check_if_valid_move(side, y):
+                break
+        self._do_regular_move(side, y, bot_piece)
+
+    def check_if_valid_move(self, side, y):
+        return not self._check_if_row_full(y, side)
+
+
+def generate_random_move(board_width):
+    side = random.choice(("R", "L"))
+    y = random.choice(range(board_width))
+    return side, y
