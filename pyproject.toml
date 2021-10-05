@@ -8,6 +8,8 @@ authors = ["Dylan Wilson <dylanjw@protonmail.com>"]
 python = "^3.9"
 Django = "^3.2.7"
 channels = "^3.0.4"
+asgiref = "3.3.4"
+channels-redis = "^3.3.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
