@@ -15,9 +15,10 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'game_server.settings')
 asgi_app = get_asgi_application()
 
 from channels.auth import AuthMiddlewareStack
-from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.routing import ProtocolTypeRouter, URLRouter, ChannelNameRouter
 
 import playdot.routing
+from playdot.consumers import PlaydotBot
 
 
 application = ProtocolTypeRouter({
@@ -27,4 +28,9 @@ application = ProtocolTypeRouter({
              playdot.routing.websocket_urlpatterns
          )
      ),
+  "channel": ChannelNameRouter(
+      {
+         "playdot-bot": PlaydotBot.as_asgi() 
+      }
+  )
  })

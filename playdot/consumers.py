@@ -4,6 +4,7 @@ from channels.db import database_sync_to_async
 from .game import Game, PlaydotPiece, RowFull, GameOver
 from .models import ChannelPlayer
 from django.db import IntegrityError
+import random
 
 
 def try_assign_player_to_channel(game_data, piece, channel_name) -> bool:
@@ -42,11 +43,57 @@ async def get_player_assignment(game_data, channel_name):
     return player
 
 
+class PlaydotBot(AsyncJsonWebsocketConsumer):
+    games = {}
+
+    async def join_game(self, content):
+        gid = content["data"]["gid"]
+        group_name = "playdot_%s" % gid
+        game = await database_sync_to_async(Game)(gid=gid)
+
+        await self.channel_layer.group_add(group_name, self.channel_name)
+
+        player = await get_player_assignment(game.data, self.channel_name)
+        self.games[gid] = player
+        await self.update({'gid': gid})
+
+    async def disconnect(self, close_code):
+        # Leave room group
+        self.channel_layer.group_discard(self.group_name, self.channel_name)
+        assignments = await database_sync_to_async(
+            ChannelPlayer.objects.filter
+        )(channel_name=self.channel_name)
+
+        print(f"Bot found assignments that im removing")
+        await database_sync_to_async(assignments.delete)()
+
+    async def update(self, event):
+        """We handle the `update` event type
+
+        This event is sent when there has been a change to the board state
+        """
+        print(f"worker received event: {event}")
+        player = self.games[event["gid"]]
+        game = await database_sync_to_async(Game)(gid=event["gid"])
+        if player == game.data.next_to_play:
+            side = random.choice(("L", "R"))
+            y = random.choice(range(game.board_width))
+            await database_sync_to_async(do_turn)(game, side, y, player)
+
+            group_name = "playdot_%s" % event["gid"]
+            await self.channel_layer.group_send(
+                group_name,
+                {"type": "update",
+                    "gid": event["gid"] },
+            )
+
+
+
 class GameConsumer(AsyncJsonWebsocketConsumer):
     game = None
 
     async def connect(self):
-        self.game_id = self.scope["url_route"]["kwargs"]["gid"]
+        self.game_id = str(self.scope["url_route"]["kwargs"]["gid"])
         self.game = await database_sync_to_async(Game)(gid=self.game_id)
         self.group_name = "playdot_%s" % self.game_id
 
@@ -86,13 +133,20 @@ class GameConsumer(AsyncJsonWebsocketConsumer):
             print("sending state_change")
             await self.channel_layer.group_send(
                 self.group_name,
-                {"type": "update"},
+                {"type": "update",
+                 "gid": self.game_id },
+            )
+
+        if content["method"] == "invite_bot":
+            await self.channel_layer.send(
+                "playdot-bot", {"type": "join.game", "data": {"gid": self.game_id}}
             )
 
     async def update(self, event):
         print("update method triggered")
-        await self.send_json({"method": "state_change", "data": ""})
-
+        await self.send_json(
+            {"method": "state_change", "data": {"gid": self.game_id}}
+        )
 
 def catch_integrity_error(fn):
     def inner(*args, **kwargs):

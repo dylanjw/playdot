@@ -184,12 +184,22 @@ class PlaydotApp {
     draw(game_data) {
         drawBoard(game_data, this.canvas)
     }
+    invite_bot() {
+        this.socket.send(
+            JSON.stringify({ method: "invite_bot" })
+        )
+    }
 }
-
 
 const appElement = document.getElementById("app")
 if (appElement !== null) {
     const canvas = document.createElement('canvas')
     appElement.append(canvas)
     playdot = new PlaydotApp(canvas)
+    document.getElementById('invite-bot').addEventListener(
+        "click",
+        (event) => {
+            playdot.invite_bot()
+        }
+    )
 }

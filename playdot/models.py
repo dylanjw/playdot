@@ -24,6 +24,7 @@ class GameData(models.Model):
     gid = models.UUIDField()
     winner = models.IntegerField(null=True)
     next_to_play = models.IntegerField(null=True)
+    is_single_player = models.BooleanField(default=False)
     board = models.OneToOneField(
         "GridBoard", on_delete=models.CASCADE, related_name="game"
     )
